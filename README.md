@@ -1,7 +1,9 @@
 # Laravel Monitor Client
 
 Laravel client that reports uncaught exceptions and periodic heartbeats to a
-self-hosted monitoring service.
+self-hosted monitoring service. The server side lives at
+[marekmiklusek/monitor](https://github.com/marekmiklusek/monitor) – install
+that first, then point this client at it via `MONITOR_URL`.
 
 The package is built around a single rule: **it must never break or slow down
 the host application**. Every network call, every serialisation step and even
