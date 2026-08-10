@@ -3,7 +3,7 @@
 Laravel client that reports uncaught exceptions and periodic heartbeats to a
 self-hosted monitoring service.
 
-The package is built around a single rule: **it must never break or slow down**
+The package is built around a single rule: **it must never break or slow down
 the host application**. Every network call, every serialisation step and even
 the package boot itself is wrapped in a `try/catch` that fails silently. A lost
 report is always preferable to a 500 in production. Silenced failures are not
