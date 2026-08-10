@@ -1,19 +1,22 @@
 {
-    "name": "nunomaduro/skeleton-php",
-    "description": "A skeleton repository for my packages",
-    "keywords": ["php", "skeleton", "package"],
+    "name": "marekmiklusek/laravel-monitor-client",
+    "description": "Laravel client that reports exceptions and heartbeats to a self-hosted monitoring service",
+    "keywords": ["php", "laravel", "monitoring", "exceptions", "heartbeat"],
     "license": "MIT",
     "authors": [
         {
-            "name": "Nuno Maduro",
-            "email": "enunomaduro@gmail.com"
+            "name": "Marek Miklušek",
+            "email": "marekmiklusek@gmail.com"
         }
     ],
     "require": {
-        "php": "^8.4.0"
+        "php": "^8.4.0",
+        "illuminate/http": "^13.0",
+        "illuminate/support": "^13.0"
     },
     "require-dev": {
         "laravel/pint": "^1.24.0",
+        "orchestra/testbench": "^11.0",
         "pestphp/pest": "^5.0",
         "pestphp/pest-plugin-type-coverage": "^5.0",
         "phpstan/phpstan": "^2.1.26",
@@ -22,7 +25,7 @@
     },
     "autoload": {
         "psr-4": {
-            "NunoMaduro\\SkeletonPhp\\": "src/"
+            "MarekMiklusek\\MonitorClient\\": "src/"
         }
     },
     "autoload-dev": {
@@ -30,13 +33,20 @@
             "Tests\\": "tests/"
         }
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true,
     "config": {
         "sort-packages": true,
         "preferred-install": "dist",
         "allow-plugins": {
             "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MarekMiklusek\\MonitorClient\\MonitorServiceProvider"
+            ]
         }
     },
     "scripts": {

@@ -1,47 +1,236 @@
-<p align="center">
-    <img src="https://raw.githubusercontent.com/nunomaduro/skeleton-php/master/docs/example.png" height="300" alt="Skeleton Php">
-    <p align="center">
-        <a href="https://github.com/nunomaduro/skeleton-php/actions"><img alt="GitHub Workflow Status (master)" src="https://github.com/nunomaduro/skeleton-php/actions/workflows/tests.yml/badge.svg"></a>
-        <a href="https://packagist.org/packages/nunomaduro/skeleton-php"><img alt="Total Downloads" src="https://img.shields.io/packagist/dt/nunomaduro/skeleton-php"></a>
-        <a href="https://packagist.org/packages/nunomaduro/skeleton-php"><img alt="Latest Version" src="https://img.shields.io/packagist/v/nunomaduro/skeleton-php"></a>
-        <a href="https://packagist.org/packages/nunomaduro/skeleton-php"><img alt="License" src="https://img.shields.io/packagist/l/nunomaduro/skeleton-php"></a>
-    </p>
-</p>
+# Laravel Monitor Client
 
-------
-This package provides a wonderful **PHP Skeleton** to start building your next package idea.
+!!! WORK IN PROGRESS !!!
 
-> **Requires [PHP 8.3+](https://php.net/releases/)**
+Laravel client that reports uncaught exceptions and periodic heartbeats to a
+self-hosted monitoring service.
 
-⚡️ Create your package using [Composer](https://getcomposer.org):
+The package is built around a single rule: **it must never break or slow down
+the host application**. Every network call, every serialisation step and even
+the package boot itself is wrapped in a `try/catch` that fails silently. A lost
+report is always preferable to a 500 in production. Silenced failures are not
+invisible, though — they are written to the application log (see
+[Failure logging](#failure-logging)).
+
+## Requirements
+
+- PHP 8.4+
+- Laravel 13
+
+## Installation
 
 ```bash
-composer create-project nunomaduro/skeleton-php --prefer-source PackageName
+composer require marekmiklusek/laravel-monitor-client
 ```
 
-🧹 Keep a modern codebase with **Pint**:
+Publish the config file:
+
 ```bash
-composer lint
+php artisan vendor:publish --tag=monitor-config
 ```
 
-✅ Run refactors using **Rector**
+### Local development with a path repository
+
+To work on the package and a host application at the same time, point Composer
+at your local checkout. With `"symlink": true` the package directory is
+symlinked into `vendor/`, so edits are picked up immediately without reinstalling.
+
+```json
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../laravel-monitor-client",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "require": {
+        "marekmiklusek/laravel-monitor-client": "*"
+    }
+}
+```
+
+## Configuration
+
+All settings are read through `config('monitor.*')`. The package never calls
+`env()` outside of `config/monitor.php`, so it keeps working under
+`php artisan config:cache`.
+
+| Env variable      | Config key         | Default        | Description                                       |
+|-------------------|--------------------|----------------|---------------------------------------------------|
+| `MONITOR_URL`     | `monitor.url`      | `null`         | Endpoint that receives the payload                |
+| `MONITOR_TOKEN`   | `monitor.token`    | `null`         | Sent as `Authorization: Bearer <token>`           |
+| `MONITOR_ENABLED` | `monitor.enabled`  | `false`        | Master switch, off by default                     |
+| `MONITOR_TIMEOUT` | `monitor.timeout`  | `2`            | HTTP timeout in seconds, no retries               |
+
+```dotenv
+MONITOR_URL=https://monitor.example.com/api/events
+MONITOR_TOKEN=your-token-here
+MONITOR_ENABLED=true
+MONITOR_TIMEOUT=2
+```
+
+Config-only options (no env variable):
+
+| Key                          | Default                                                                                       | Description                                            |
+|------------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| `monitor.environments`       | `['production']`                                                                              | Environments the package is active in                  |
+| `monitor.auto_register`      | `true`                                                                                        | Hook into the exception handler automatically          |
+| `monitor.log_channel`        | `null`                                                                                        | Channel for silenced-failure warnings, `null` = default |
+| `monitor.log_throttle_minutes` | `5`                                                                                         | Same failure type is logged at most once per window    |
+| `monitor.ignored_exceptions` | `NotFoundHttpException`, `ValidationException`, `AuthenticationException`, `AuthorizationException` | Matched with `instanceof`, so subclasses are ignored too |
+| `monitor.scrub_keys`         | `password`, `password_confirmation`, `token`, `secret`, `authorization`, `api_key`, `credit_card` | Replaced with `[REDACTED]`, case insensitive, at any depth |
+
+**Nothing is collected at all** unless `monitor.enabled` is true, a URL is set,
+and the current environment is listed in `monitor.environments`. Installing the
+package therefore never changes behaviour on its own.
+
+### Verify the installation
+
+After setting the `MONITOR_` variables, confirm the application can actually
+reach the monitoring service:
+
 ```bash
-composer refactor
+php artisan monitor:test
 ```
 
-⚗️ Run static analysis using **PHPStan**:
+The command sends one test event and prints the result **loudly** — it is the
+only place in the package where errors are not silenced. On success it prints
+the HTTP status; on failure it prints the concrete reason (connection error,
+status code, response body). It runs even when `monitor.enabled` is false, so
+it can be used before switching the package on. A non-zero exit code makes it
+usable in deploy scripts.
+
+### Failure logging
+
+Every silenced failure — a rejected or failed HTTP request, a serialisation
+error, a broken boot — is written to the log as a `warning`:
+
+- channel comes from `monitor.log_channel` (`null` = application default),
+- the same failure type is logged at most once per `monitor.log_throttle_minutes`
+  (default 5), so an unreachable monitoring service cannot flood the log,
+- if the cache is unavailable, throttling is skipped and the warning is logged
+  anyway,
+- while a warning is being written the package collects nothing, so a failure
+  inside logging can never loop back into the reporter.
+
+If exceptions stop arriving at the central service, check the host
+application's log for `Laravel Monitor client` warnings first, then run
+`php artisan monitor:test`.
+
+## How it works
+
+Exceptions are collected into an in-memory buffer during a request and shipped
+in a **single** HTTP request from a `terminating` callback. In contexts where
+`terminating` is not reliable, the buffer is flushed on:
+
+- `CommandFinished` — end of an Artisan command
+- `JobExceptionOccurred` — every failed attempt, not just the final one
+- `JobProcessed` / `JobFailed` — end of a queued job
+- `WorkerStopping` — `queue:restart`, so a partial buffer still ships
+
+The buffer is keyed by the throwable instance itself (`SplObjectStorage`), so
+the same exception reported twice only ever produces one event.
+
+### Registering the exception hook
+
+By default the service provider attaches itself to the framework exception
+handler and there is nothing to do.
+
+If you prefer to wire it up explicitly, set `monitor.auto_register` to `false`
+and register it in `bootstrap/app.php`. Note the explicit import — the facade is
+deliberately **not** registered as a global `\Monitor` alias, to avoid colliding
+with a class of the same name in your application.
+
+```php
+use MarekMiklusek\MonitorClient\Facades\Monitor;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withExceptions(function (Exceptions $exceptions): void {
+        Monitor::handles($exceptions);
+    })
+    ->create();
+```
+
+Calling `Monitor::handles()` while auto-registration is still on is harmless:
+an internal flag guarantees a single registration regardless of call order, so
+no exception is ever reported twice.
+
+> **Exceptions listed in your application's `dontReport` never reach the
+> monitoring service.** The package hooks into the reportable chain, which the
+> framework skips entirely for ignored exception types. If you need to see one
+> of those centrally, remove it from `dontReport` and add it to
+> `monitor.ignored_exceptions` instead — or leave it out of both.
+
+### Heartbeat
+
+The service provider schedules `monitor:heartbeat` every five minutes, but only
+when the package is enabled for the current environment. Make sure the host
+application runs the scheduler.
+
+You can also send one by hand:
+
 ```bash
-composer test:types
+php artisan monitor:heartbeat
 ```
 
-✅ Run unit tests using **PEST**
-```bash
-composer test:unit
+## Payload
+
+```json
+{
+  "schema_version": 1,
+  "sent_at": "2026-08-06T12:34:56+00:00",
+  "environment": "production",
+  "occurrences": [
+    {
+      "type": "exception",
+      "occurred_at": "2026-08-06T12:34:55+00:00",
+      "exception_class": "RuntimeException",
+      "message": "Something went wrong",
+      "file": "/app/Http/Controllers/OrderController.php",
+      "line": 42,
+      "stack": [
+        {
+          "file": "/app/Http/Controllers/OrderController.php",
+          "line": 42,
+          "function": "store",
+          "class": "App\\Http\\Controllers\\OrderController"
+        }
+      ],
+      "context": {
+        "url": "https://example.com/orders",
+        "method": "POST",
+        "user_id": 1
+      }
+    }
+  ]
+}
 ```
 
-🚀 Run the entire test suite:
+Stack traces are truncated to 30 frames. Frame **arguments are never sent** —
+they routinely contain passwords and tokens and cannot be serialised reliably.
+
+### Adding new occurrence types
+
+`type` is backed by the `OccurrenceType` enum, and every occurrence is a
+subclass of `MonitorOccurrence` that renders its own `payload()`. Failed jobs,
+slow queries or breadcrumbs are added by introducing a new enum case and a new
+subclass — the buffer, the payload envelope and the transport stay untouched.
+
+## Security
+
+Values of keys listed in `monitor.scrub_keys` are replaced with `[REDACTED]`
+before anything leaves the application. Matching is case insensitive and
+recursive through the whole context.
+
+## Testing
+
 ```bash
 composer test
 ```
 
-**Skeleton PHP** was created by **[Nuno Maduro](https://x.com/enunomaduro)** under the **[MIT license](https://opensource.org/licenses/MIT)**.
+## License
+
+MIT. See [LICENSE.md](LICENSE.md).
