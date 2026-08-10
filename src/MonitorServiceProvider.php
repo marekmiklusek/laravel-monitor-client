@@ -22,7 +22,6 @@ use MarekMiklusek\MonitorClient\Support\ContextResolver;
 use MarekMiklusek\MonitorClient\Transport\HttpTransport;
 use MarekMiklusek\MonitorClient\Console\HeartbeatCommand;
 use MarekMiklusek\MonitorClient\Support\StackTraceFormatter;
-use Illuminate\Foundation\Exceptions\Handler as FoundationHandler;
 
 final class MonitorServiceProvider extends ServiceProvider
 {
@@ -93,7 +92,12 @@ final class MonitorServiceProvider extends ServiceProvider
 
         $handler = $this->app->make(ExceptionHandler::class);
 
-        if (! $handler instanceof FoundationHandler) {
+        if (! method_exists($handler, 'reportable')) {
+            (new Silencer)->log($handler::class, sprintf(
+                'Laravel Monitor client auto-register skipped: unsupported handler %s.',
+                $handler::class,
+            ));
+
             return;
         }
 

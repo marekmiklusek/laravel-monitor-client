@@ -73,13 +73,19 @@ it('skips registration when the handler is already attached', function (): void 
     expect(app(Monitor::class)->hasRegisteredHandler())->toBeTrue();
 });
 
-it('skips registration when the handler is not the foundation one', function (): void {
+it('skips and logs a warning when the handler has no reportable method', function (): void {
     app()->forgetInstance(Monitor::class);
     app()->instance(ExceptionHandler::class, new NonFoundationHandler);
 
+    $logs = capturedLogs();
+
     new MonitorServiceProvider(app())->boot();
 
-    expect(app(Monitor::class)->hasRegisteredHandler())->toBeFalse();
+    expect(app(Monitor::class)->hasRegisteredHandler())->toBeFalse()
+        ->and($logs)->toHaveCount(1)
+        ->and($logs[0]->level)->toBe('warning')
+        ->and($logs[0]->message)->toContain('auto-register skipped')
+        ->and($logs[0]->message)->toContain(NonFoundationHandler::class);
 });
 
 it('stays inert when the package is disabled', function (): void {

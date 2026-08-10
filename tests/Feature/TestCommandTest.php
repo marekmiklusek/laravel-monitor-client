@@ -36,6 +36,44 @@ it('sends even when the package is disabled', function (): void {
     Http::assertSentCount(1);
 });
 
+it('confirms live reporting when the package is fully active', function (): void {
+    Http::fake();
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain("Live reporting is active for environment 'testing'.")
+        ->assertSuccessful();
+});
+
+it('warns that live reporting is off when the package is disabled', function (): void {
+    config()->set('monitor.enabled', false);
+
+    Http::fake();
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain('real exceptions are NOT being reported: monitor.enabled is false')
+        ->assertSuccessful();
+});
+
+it('warns that live reporting is off in a disallowed environment', function (): void {
+    config()->set('monitor.environments', ['production']);
+
+    Http::fake();
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain("environment 'testing' is not in environments ['production']")
+        ->assertSuccessful();
+});
+
+it('warns with an empty environments list', function (): void {
+    config()->set('monitor.environments', []);
+
+    Http::fake();
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain('is not in environments []')
+        ->assertSuccessful();
+});
+
 it('fails loudly when the service rejects the event', function (): void {
     Http::fake([
         '*' => Http::response('invalid token', 401),

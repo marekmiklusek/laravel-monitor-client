@@ -101,6 +101,12 @@ status code, response body). It runs even when `monitor.enabled` is false, so
 it can be used before switching the package on. A non-zero exit code makes it
 usable in deploy scripts.
 
+After a successful send the command also prints whether **live reporting** is
+active: if the package is disabled or the current environment is not listed in
+`monitor.environments`, it warns that connectivity is OK but real exceptions
+are not being reported. Connectivity and live collection are two different
+things – a green test does not mean exceptions are flowing.
+
 ### Failure logging
 
 Every silenced failure – a rejected or failed HTTP request, a serialisation

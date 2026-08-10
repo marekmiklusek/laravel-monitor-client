@@ -61,8 +61,8 @@
             "@test:lint",
             "@test:type-coverage",
             "@test:unit",
-            "@test:types",
-            "@test:refactor"
+            "@test:refactor",
+            "@test:types"
         ]
     }
 }

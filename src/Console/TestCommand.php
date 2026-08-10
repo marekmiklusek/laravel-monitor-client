@@ -60,7 +60,40 @@ final class TestCommand extends Command
 
         $this->info(sprintf('The monitoring service accepted the test occurrence with HTTP %d.', $response->status()));
 
+        $this->reportLiveStatus($config);
+
         return self::SUCCESS;
+    }
+
+    private function reportLiveStatus(MonitorConfig $config): void
+    {
+        if (! $config->enabled()) {
+            $this->warn('Connectivity OK, but real exceptions are NOT being reported: monitor.enabled is false.');
+
+            return;
+        }
+
+        $environment = $this->environment();
+
+        if (! $config->shouldRun($environment)) {
+            $this->warn(sprintf(
+                "Connectivity OK, but real exceptions are NOT being reported: environment '%s' is not in environments %s.",
+                $environment,
+                $this->formatList($config->environments()),
+            ));
+
+            return;
+        }
+
+        $this->info(sprintf("Live reporting is active for environment '%s'.", $environment));
+    }
+
+    /**
+     * @param  array<int, string>  $items
+     */
+    private function formatList(array $items): string
+    {
+        return $items === [] ? '[]' : sprintf("['%s']", implode("', '", $items));
     }
 
     private function environment(): string

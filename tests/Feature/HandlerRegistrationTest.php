@@ -16,6 +16,24 @@ it('registers itself with the framework exception handler', function (): void {
     expect(app(Monitor::class)->hasRegisteredHandler())->toBeTrue();
 });
 
+it('delivers a handler-reported exception without touching the monitor directly', function (): void {
+    app(ExceptionHandler::class)->report(new RuntimeException('end to end'));
+
+    app()->terminate();
+
+    Http::assertSentCount(1);
+
+    Http::assertSent(function ($request): bool {
+        $occurrence = $request->data()['occurrences'][0];
+
+        expect($occurrence['type'])->toBe('exception')
+            ->and($occurrence['exception_class'])->toBe(RuntimeException::class)
+            ->and($occurrence['message'])->toBe('end to end');
+
+        return true;
+    });
+});
+
 it('reports exceptions passed through the framework handler', function (): void {
     $monitor = app(Monitor::class);
 
