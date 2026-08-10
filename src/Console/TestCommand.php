@@ -15,7 +15,7 @@ use MarekMiklusek\MonitorClient\PayloadBuilder;
 use MarekMiklusek\MonitorClient\Occurrences\HeartbeatOccurrence;
 
 #[Signature('monitor:test')]
-#[Description('Send a test event to the monitoring service and print the result')]
+#[Description('Send a test occurrence to the monitoring service and print the result')]
 final class TestCommand extends Command
 {
     public function handle(MonitorConfig $config, PayloadBuilder $payloadBuilder): int
@@ -52,13 +52,13 @@ final class TestCommand extends Command
         }
 
         if ($response->failed()) {
-            $this->error(sprintf('The monitoring service rejected the test event with HTTP %d.', $response->status()));
+            $this->error(sprintf('The monitoring service rejected the test occurrence with HTTP %d.', $response->status()));
             $this->line(mb_substr($response->body(), 0, 500));
 
             return self::FAILURE;
         }
 
-        $this->info(sprintf('The monitoring service accepted the test event with HTTP %d.', $response->status()));
+        $this->info(sprintf('The monitoring service accepted the test occurrence with HTTP %d.', $response->status()));
 
         return self::SUCCESS;
     }

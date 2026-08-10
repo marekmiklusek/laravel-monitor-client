@@ -10,7 +10,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Attributes\Description;
 
 #[Signature('monitor:heartbeat')]
-#[Description('Send a heartbeat event to the monitoring service')]
+#[Description('Send a heartbeat occurrence to the monitoring service')]
 final class HeartbeatCommand extends Command
 {
     public function handle(Monitor $monitor): int

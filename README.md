@@ -1,15 +1,13 @@
 # Laravel Monitor Client
 
-!!! WORK IN PROGRESS !!!
-
 Laravel client that reports uncaught exceptions and periodic heartbeats to a
 self-hosted monitoring service.
 
-The package is built around a single rule: **it must never break or slow down
+The package is built around a single rule: **it must never break or slow down**
 the host application**. Every network call, every serialisation step and even
 the package boot itself is wrapped in a `try/catch` that fails silently. A lost
 report is always preferable to a 500 in production. Silenced failures are not
-invisible, though — they are written to the application log (see
+invisible, though – they are written to the application log (see
 [Failure logging](#failure-logging)).
 
 ## Requirements
@@ -96,7 +94,7 @@ reach the monitoring service:
 php artisan monitor:test
 ```
 
-The command sends one test event and prints the result **loudly** — it is the
+The command sends one test occurrence and prints the result **loudly** – it is the
 only place in the package where errors are not silenced. On success it prints
 the HTTP status; on failure it prints the concrete reason (connection error,
 status code, response body). It runs even when `monitor.enabled` is false, so
@@ -105,8 +103,8 @@ usable in deploy scripts.
 
 ### Failure logging
 
-Every silenced failure — a rejected or failed HTTP request, a serialisation
-error, a broken boot — is written to the log as a `warning`:
+Every silenced failure – a rejected or failed HTTP request, a serialisation
+error, a broken boot – is written to the log as a `warning`:
 
 - channel comes from `monitor.log_channel` (`null` = application default),
 - the same failure type is logged at most once per `monitor.log_throttle_minutes`
@@ -126,13 +124,13 @@ Exceptions are collected into an in-memory buffer during a request and shipped
 in a **single** HTTP request from a `terminating` callback. In contexts where
 `terminating` is not reliable, the buffer is flushed on:
 
-- `CommandFinished` — end of an Artisan command
-- `JobExceptionOccurred` — every failed attempt, not just the final one
-- `JobProcessed` / `JobFailed` — end of a queued job
-- `WorkerStopping` — `queue:restart`, so a partial buffer still ships
+- `CommandFinished` – end of an Artisan command
+- `JobExceptionOccurred` – every failed attempt, not just the final one
+- `JobProcessed` / `JobFailed` – end of a queued job
+- `WorkerStopping` – `queue:restart`, so a partial buffer still ships
 
 The buffer is keyed by the throwable instance itself (`SplObjectStorage`), so
-the same exception reported twice only ever produces one event.
+the same exception reported twice only ever produces one occurrence.
 
 ### Registering the exception hook
 
@@ -140,7 +138,7 @@ By default the service provider attaches itself to the framework exception
 handler and there is nothing to do.
 
 If you prefer to wire it up explicitly, set `monitor.auto_register` to `false`
-and register it in `bootstrap/app.php`. Note the explicit import — the facade is
+and register it in `bootstrap/app.php`. Note the explicit import – the facade is
 deliberately **not** registered as a global `\Monitor` alias, to avoid colliding
 with a class of the same name in your application.
 
@@ -162,7 +160,7 @@ no exception is ever reported twice.
 > monitoring service.** The package hooks into the reportable chain, which the
 > framework skips entirely for ignored exception types. If you need to see one
 > of those centrally, remove it from `dontReport` and add it to
-> `monitor.ignored_exceptions` instead — or leave it out of both.
+> `monitor.ignored_exceptions` instead – or leave it out of both.
 
 ### Heartbeat
 
@@ -209,7 +207,7 @@ php artisan monitor:heartbeat
 }
 ```
 
-Stack traces are truncated to 30 frames. Frame **arguments are never sent** —
+Stack traces are truncated to 30 frames. Frame **arguments are never sent** –
 they routinely contain passwords and tokens and cannot be serialised reliably.
 
 ### Adding new occurrence types
@@ -217,7 +215,7 @@ they routinely contain passwords and tokens and cannot be serialised reliably.
 `type` is backed by the `OccurrenceType` enum, and every occurrence is a
 subclass of `MonitorOccurrence` that renders its own `payload()`. Failed jobs,
 slow queries or breadcrumbs are added by introducing a new enum case and a new
-subclass — the buffer, the payload envelope and the transport stay untouched.
+subclass – the buffer, the payload envelope and the transport stay untouched.
 
 ## Security
 
