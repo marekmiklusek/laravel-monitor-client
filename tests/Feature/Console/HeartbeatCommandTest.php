@@ -6,11 +6,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\ConnectionException;
 use MarekMiklusek\MonitorClient\PayloadBuilder;
 
-beforeEach(function (): void {
-    Http::fake();
-});
-
 it('sends a heartbeat payload from the artisan command', function (): void {
+    Http::fake();
+
     $this->artisan('monitor:heartbeat')->assertSuccessful();
 
     Http::assertSentCount(1);
@@ -33,12 +31,16 @@ it('sends a heartbeat payload from the artisan command', function (): void {
 });
 
 it('sends the heartbeat with a bearer token', function (): void {
+    Http::fake();
+
     $this->artisan('monitor:heartbeat')->assertSuccessful();
 
     Http::assertSent(fn ($request): bool => $request->hasHeader('Authorization', 'Bearer test-token'));
 });
 
 it('sends no heartbeat in a disallowed environment', function (): void {
+    Http::fake();
+
     config()->set('monitor.environments', ['production']);
 
     $this->artisan('monitor:heartbeat')->assertSuccessful();
@@ -51,5 +53,10 @@ it('exits successfully even when the service is unreachable', function (): void 
         throw new ConnectionException('down');
     });
 
+    $logs = capturedLogs();
+
     $this->artisan('monitor:heartbeat')->assertSuccessful();
+
+    expect($logs)->toHaveCount(1)
+        ->and($logs[0]->context['exception'])->toBe(ConnectionException::class);
 });

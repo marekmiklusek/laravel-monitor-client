@@ -72,6 +72,16 @@ it('drops non string entries from lists', function (): void {
     expect(monitorConfig()->scrubKeys())->toBe(['password', 'secret']);
 });
 
+it('collects input by default', function (): void {
+    expect(monitorConfig()->collectInput())->toBeTrue();
+});
+
+it('can disable input collection', function (): void {
+    config()->set('monitor.collect_input', false);
+
+    expect(monitorConfig()->collectInput())->toBeFalse();
+});
+
 it('defaults to no dedicated log channel', function (): void {
     expect(monitorConfig()->logChannel())->toBeNull();
 });

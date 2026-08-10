@@ -65,6 +65,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Request Input
+    |--------------------------------------------------------------------------
+    |
+    | When enabled the exception context includes the request input (query
+    | and body) and artisan command arguments, scrubbed and truncated.
+    | Disable for applications with highly sensitive forms.
+    |
+    */
+
+    'collect_input' => true,
+
+    /*
+    |--------------------------------------------------------------------------
     | Failure Logging
     |--------------------------------------------------------------------------
     |

@@ -45,6 +45,11 @@ final readonly class MonitorConfig
         return is_numeric($timeout) ? max(1, (int) $timeout) : 2;
     }
 
+    public function collectInput(): bool
+    {
+        return (bool) $this->config->get('monitor.collect_input', true);
+    }
+
     public function logChannel(): ?string
     {
         $channel = $this->config->get('monitor.log_channel');

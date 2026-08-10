@@ -76,6 +76,7 @@ Config-only options (no env variable):
 |------------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------------|
 | `monitor.environments`       | `['production']`                                                                              | Environments the package is active in                  |
 | `monitor.auto_register`      | `true`                                                                                        | Hook into the exception handler automatically          |
+| `monitor.collect_input`      | `true`                                                                                        | Collect request input and command arguments into the context |
 | `monitor.log_channel`        | `null`                                                                                        | Channel for silenced-failure warnings, `null` = default |
 | `monitor.log_throttle_minutes` | `5`                                                                                         | Same failure type is logged at most once per window    |
 | `monitor.ignored_exceptions` | `NotFoundHttpException`, `ValidationException`, `AuthenticationException`, `AuthorizationException` | Matched with `instanceof`, so subclasses are ignored too |
@@ -206,7 +207,16 @@ php artisan monitor:heartbeat
       "context": {
         "url": "https://example.com/orders",
         "method": "POST",
-        "user_id": 1
+        "user_id": 1,
+        "headers": {
+          "accept": "application/json",
+          "user-agent": "Mozilla/5.0"
+        },
+        "input": {
+          "email": "customer@example.com",
+          "password": "[REDACTED]",
+          "attachment": "[FILE invoice.pdf, 48211 B]"
+        }
       }
     }
   ]
@@ -223,11 +233,25 @@ subclass of `MonitorOccurrence` that renders its own `payload()`. Failed jobs,
 slow queries or breadcrumbs are added by introducing a new enum case and a new
 subclass – the buffer, the payload envelope and the transport stay untouched.
 
+Besides `url`, `method` and `user_id`, the context carries the request
+`input` (query + body, max depth 3, max 100 keys, values truncated to
+1000 characters, uploads replaced with a `[FILE <name>, <size> B]`
+placeholder) and a whitelist of `headers` (`accept`, `content-type`,
+`user-agent`, `referer`, `origin`, `x-request-id`). In console context
+`input` is replaced by `command` with the artisan command name and its
+arguments. Set `monitor.collect_input` to `false` to collect neither
+input nor command arguments.
+
 ## Security
 
 Values of keys listed in `monitor.scrub_keys` are replaced with `[REDACTED]`
 before anything leaves the application. Matching is case insensitive and
-recursive through the whole context.
+recursive through the whole context, including request input and command
+arguments.
+
+The `authorization` and `cookie` headers are **never collected** – not even
+in redacted form, they simply are not read. Uploaded files are represented
+only by name and size; their content never leaves the application.
 
 ## Testing
 

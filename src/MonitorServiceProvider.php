@@ -43,7 +43,7 @@ final class MonitorServiceProvider extends ServiceProvider
                 config: $this->app->make(MonitorConfig::class),
                 transport: $this->app->make(Transport::class),
                 payloadBuilder: new PayloadBuilder,
-                contextResolver: new ContextResolver,
+                contextResolver: new ContextResolver($this->app->runningInConsole()),
                 stackTraceFormatter: new StackTraceFormatter,
                 environment: $this->environment(),
             ));
