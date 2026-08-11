@@ -83,13 +83,13 @@ final class Monitor
                 return;
             }
 
-            if ($this->buffer->contains($throwable)) {
+            if ($this->buffer->offsetExists($throwable)) {
                 return;
             }
 
             $scrubber = new Scrubber($this->config->scrubKeys());
 
-            $this->buffer->attach($throwable, ExceptionOccurrence::fromThrowable(
+            $this->buffer->offsetSet($throwable, ExceptionOccurrence::fromThrowable(
                 throwable: $throwable,
                 occurredAt: new DateTimeImmutable,
                 stack: $this->stackTraceFormatter->format($throwable),
