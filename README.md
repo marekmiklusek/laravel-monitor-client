@@ -63,13 +63,11 @@ All settings are read through `config('monitor.*')`. The package never calls
 | `MONITOR_URL`     | `monitor.url`      | `null`         | Endpoint that receives the payload                |
 | `MONITOR_TOKEN`   | `monitor.token`    | `null`         | Sent as `Authorization: Bearer <token>`           |
 | `MONITOR_ENABLED` | `monitor.enabled`  | `false`        | Master switch, off by default                     |
-| `MONITOR_TIMEOUT` | `monitor.timeout`  | `2`            | HTTP timeout in seconds, no retries               |
 
 ```dotenv
+MONITOR_ENABLED=true
 MONITOR_URL=https://monitor.example.com/api/events
 MONITOR_TOKEN=your-token-here
-MONITOR_ENABLED=true
-MONITOR_TIMEOUT=2
 ```
 
 Config-only options (no env variable):
@@ -77,6 +75,7 @@ Config-only options (no env variable):
 | Key                          | Default                                                                                       | Description                                            |
 |------------------------------|-----------------------------------------------------------------------------------------------|--------------------------------------------------------|
 | `monitor.environments`       | `['production']`                                                                              | Environments the package is active in                  |
+| `monitor.timeout`            | `2`                                                                                           | HTTP timeout in seconds, no retries                    |
 | `monitor.auto_register`      | `true`                                                                                        | Hook into the exception handler automatically          |
 | `monitor.collect_input`      | `true`                                                                                        | Collect request input and command arguments into the context |
 | `monitor.log_channel`        | `null`                                                                                        | Channel for silenced-failure warnings, `null` = default |
