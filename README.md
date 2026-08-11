@@ -1,4 +1,14 @@
-# Laravel Monitor Client
+<p align="center">
+    <img src=".github/banner.svg" alt="Laravel Monitor Client" width="100%">
+</p>
+
+<p align="center">
+    <a href="https://github.com/marekmiklusek/laravel-monitor-client/actions"><img src="https://img.shields.io/github/actions/workflow/status/marekmiklusek/laravel-monitor-client/tests.yml?branch=main&label=tests&style=flat-square" alt="Tests"></a>
+    <a href="https://packagist.org/packages/marekmiklusek/laravel-monitor-client"><img src="https://img.shields.io/packagist/v/marekmiklusek/laravel-monitor-client?style=flat-square" alt="Latest version"></a>
+    <a href="https://packagist.org/packages/marekmiklusek/laravel-monitor-client"><img src="https://img.shields.io/packagist/dt/marekmiklusek/laravel-monitor-client?style=flat-square" alt="Downloads"></a>
+    <img src="https://img.shields.io/packagist/php-v/marekmiklusek/laravel-monitor-client?style=flat-square" alt="PHP version">
+    <a href="LICENSE.md"><img src="https://img.shields.io/packagist/l/marekmiklusek/laravel-monitor-client?style=flat-square" alt="License"></a>
+</p>
 
 Laravel client that reports uncaught exceptions and periodic heartbeats to a
 self-hosted monitoring service. The server side lives at
