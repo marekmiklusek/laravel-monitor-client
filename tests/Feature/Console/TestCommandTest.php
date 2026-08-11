@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Client\ConnectionException;
 
 it('confirms an accepted test event', function (): void {
@@ -71,6 +72,55 @@ it('warns with an empty environments list', function (): void {
 
     $this->artisan('monitor:test')
         ->expectsOutputToContain('is not in environments []')
+        ->assertSuccessful();
+});
+
+it('confirms the scheduled heartbeat and reminds about cron', function (): void {
+    Http::fake();
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain('Heartbeats are scheduled every 5 minutes.')
+        ->expectsOutputToContain('* * * * * php artisan schedule:run')
+        ->assertSuccessful();
+});
+
+it('warns when the heartbeat is not scheduled because the package is inactive', function (): void {
+    config()->set('monitor.enabled', false);
+
+    Http::fake();
+
+    $schedule = app(Schedule::class);
+
+    (fn (): array => $this->events = [])->call($schedule);
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain('Heartbeats are NOT scheduled')
+        ->expectsOutputToContain('monitor.enabled is false')
+        ->assertSuccessful();
+});
+
+it('warns when the heartbeat is missing while the package is active', function (): void {
+    Http::fake();
+
+    $schedule = app(Schedule::class);
+
+    (fn (): array => $this->events = [])->call($schedule);
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain('Heartbeats are NOT scheduled')
+        ->expectsOutputToContain('schedule could not be inspected')
+        ->assertSuccessful();
+});
+
+it('warns when the schedule cannot be resolved at all', function (): void {
+    Http::fake();
+
+    app()->bind(Schedule::class, function (): never {
+        throw new RuntimeException('schedule unavailable');
+    });
+
+    $this->artisan('monitor:test')
+        ->expectsOutputToContain('Heartbeats are NOT scheduled')
         ->assertSuccessful();
 });
 

@@ -52,6 +52,34 @@ symlinked into `vendor/`, so edits are picked up immediately without reinstallin
 }
 ```
 
+## Heartbeats require the scheduler
+
+The package registers `monitor:heartbeat` into the Laravel scheduler
+**automatically** – every 5 minutes, and only while the package is enabled
+for the current environment. There is nothing to add to your own schedule.
+
+What you **must** provide is a running scheduler on the host server:
+
+```cron
+* * * * * php artisan schedule:run
+```
+
+> **Ignore this and heartbeats are never sent, so the monitoring service
+> will keep reporting the project as down even though it is perfectly
+> healthy.** This is the single most common cause of false alerts.
+
+Verify that the heartbeat is registered:
+
+```bash
+php artisan schedule:list
+```
+
+`php artisan monitor:test` reports the same thing as part of its output.
+
+A side effect worth knowing: because heartbeats go through the scheduler,
+they implicitly monitor your cron as well. If cron dies on the server,
+heartbeats stop and the monitoring service raises an alert.
+
 ## Configuration
 
 All settings are read through `config('monitor.*')`. The package never calls
@@ -108,29 +136,6 @@ active: if the package is disabled or the current environment is not listed in
 `monitor.environments`, it warns that connectivity is OK but real exceptions
 are not being reported. Connectivity and live collection are two different
 things – a green test does not mean exceptions are flowing.
-
-### Heartbeats require the scheduler
-
-The package registers the heartbeat to run **every 5 minutes** through the
-Laravel scheduler automatically – there is nothing to add to your own
-schedule. The host project therefore **must** have the scheduler running:
-
-```cron
-* * * * * php artisan schedule:run
-```
-
-If the scheduler is not running, no heartbeats are sent and the monitoring
-service will falsely report the project as down.
-
-Verify that the heartbeat is registered:
-
-```bash
-php artisan schedule:list
-```
-
-A side effect worth knowing: because heartbeats go through the scheduler,
-they implicitly monitor your cron as well. If cron dies on the server,
-heartbeats stop and the monitoring service raises an alert.
 
 ### Failure logging
 

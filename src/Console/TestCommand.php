@@ -8,6 +8,7 @@ use Throwable;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Attributes\Description;
 use MarekMiklusek\MonitorClient\MonitorConfig;
@@ -61,8 +62,40 @@ final class TestCommand extends Command
         $this->info(sprintf('The monitoring service accepted the test occurrence with HTTP %d.', $response->status()));
 
         $this->reportLiveStatus($config);
+        $this->reportHeartbeatStatus($config);
 
         return self::SUCCESS;
+    }
+
+    private function reportHeartbeatStatus(MonitorConfig $config): void
+    {
+        if (! $this->heartbeatIsScheduled()) {
+            $this->warn('Heartbeats are NOT scheduled, so the monitoring service will report this project as down.');
+
+            $this->line($config->shouldRun($this->environment())
+                ? '  The schedule could not be inspected.'
+                : '  Most likely cause: monitor.enabled is false or monitor.environments does not list this environment.');
+
+            return;
+        }
+
+        $this->info('Heartbeats are scheduled every 5 minutes.');
+        $this->line('  This only works while cron runs: * * * * * php artisan schedule:run');
+    }
+
+    private function heartbeatIsScheduled(): bool
+    {
+        try {
+            foreach ($this->laravel->make(Schedule::class)->events() as $event) {
+                if (str_contains((string) $event->command, 'monitor:heartbeat')) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function reportLiveStatus(MonitorConfig $config): void
