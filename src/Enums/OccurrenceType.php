@@ -9,4 +9,8 @@ enum OccurrenceType: string
     case Exception = 'exception';
 
     case Heartbeat = 'heartbeat';
+
+    case FailedJob = 'failed_job';
+
+    case Log = 'log';
 }

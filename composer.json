@@ -1,7 +1,18 @@
 {
     "name": "marekmiklusek/laravel-monitor-client",
-    "description": "Laravel client that reports exceptions and heartbeats to a self-hosted monitoring service",
-    "keywords": ["php", "laravel", "monitoring", "exceptions", "heartbeat"],
+    "description": "Self-hosted error and uptime monitoring for Laravel. The client package that ships exceptions, failed jobs and heartbeats to your own server.",
+    "keywords": [
+        "php",
+        "laravel",
+        "monitoring",
+        "error-tracking",
+        "exceptions",
+        "failed-jobs",
+        "logging",
+        "heartbeat",
+        "uptime",
+        "observability"
+    ],
     "license": "MIT",
     "authors": [
         {

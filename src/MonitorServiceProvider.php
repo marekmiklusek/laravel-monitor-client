@@ -7,6 +7,7 @@ namespace MarekMiklusek\MonitorClient;
 use Throwable;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Config\Repository;
@@ -21,7 +22,9 @@ use MarekMiklusek\MonitorClient\Contracts\Transport;
 use MarekMiklusek\MonitorClient\Support\ContextResolver;
 use MarekMiklusek\MonitorClient\Transport\HttpTransport;
 use MarekMiklusek\MonitorClient\Console\HeartbeatCommand;
+use MarekMiklusek\MonitorClient\Listeners\JobFailedListener;
 use MarekMiklusek\MonitorClient\Support\StackTraceFormatter;
+use MarekMiklusek\MonitorClient\Listeners\MessageLoggedListener;
 
 final class MonitorServiceProvider extends ServiceProvider
 {
@@ -68,6 +71,7 @@ final class MonitorServiceProvider extends ServiceProvider
             }
 
             $this->registerExceptionHandler($config);
+            $this->registerCollectors();
             $this->registerFlushHooks();
             $this->registerSchedule();
         });
@@ -106,6 +110,31 @@ final class MonitorServiceProvider extends ServiceProvider
         $handler->reportable(function (Throwable $throwable) use ($monitor): void {
             $monitor->report($throwable);
         });
+    }
+
+    private function registerCollectors(): void
+    {
+        $monitor = $this->app->make(Monitor::class);
+        $events = $this->app->make(Dispatcher::class);
+
+        $jobs = new JobFailedListener($monitor);
+
+        $events->listen(JobFailed::class, function (JobFailed $event) use ($jobs): void {
+            $jobs->handle($event);
+        });
+
+        $logs = new MessageLoggedListener($monitor, $this->defaultLogChannel());
+
+        $events->listen(MessageLogged::class, function (MessageLogged $event) use ($logs): void {
+            $logs->handle($event);
+        });
+    }
+
+    private function defaultLogChannel(): ?string
+    {
+        $channel = $this->app->make(Repository::class)->get('logging.default');
+
+        return is_string($channel) && $channel !== '' ? $channel : null;
     }
 
     private function registerFlushHooks(): void

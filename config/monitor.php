@@ -78,6 +78,76 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Failed Jobs
+    |--------------------------------------------------------------------------
+    |
+    | When enabled every JobFailed event is reported as a failed_job
+    | occurrence, together with the job class, connection, queue, attempt
+    | count and the scrubbed job payload.
+    |
+    */
+
+    'collect_failed_jobs' => true,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Log Events
+    |--------------------------------------------------------------------------
+    |
+    | Log records at or above this level are reported as log occurrences.
+    | The package's own silenced failures are never collected, so a broken
+    | monitoring service can not feed itself.
+    |
+    */
+
+    'collect_logs' => true,
+
+    'log_level' => 'error',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Buffer Limits
+    |--------------------------------------------------------------------------
+    |
+    | The monitoring service accepts at most 100 occurrences and 512 KB per
+    | request, so the buffer is flushed in batches bounded by both a count and
+    | a serialised size, whichever is reached first. A single occurrence too
+    | large on its own is truncated rather than dropped, and flagged with
+    | truncated: true. Messages are always cut to max_message_length, so a
+    | long record can never have the whole batch rejected with a 422. Once
+    | the buffer holds max_buffered_occurrences the client stops collecting
+    | and counts what it drops; the count is reported as a warning occurrence
+    | in the last batch, so the loss is visible centrally and not only in the
+    | local log. Exceptions and failed jobs take priority over log events: a
+    | full buffer gives up its oldest log event rather than lose a crash.
+    |
+    */
+
+    'max_occurrences_per_request' => 100,
+
+    'max_payload_kilobytes' => 400,
+
+    'max_message_length' => 8000,
+
+    'max_buffered_occurrences' => 200,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Breadcrumbs
+    |--------------------------------------------------------------------------
+    |
+    | A circular buffer of the last N log records of any level. It is only
+    | ever sent as part of an exception or failed job; when nothing fails,
+    | the buffer is thrown away.
+    |
+    */
+
+    'collect_breadcrumbs' => true,
+
+    'breadcrumbs_limit' => 30,
+
+    /*
+    |--------------------------------------------------------------------------
     | Failure Logging
     |--------------------------------------------------------------------------
     |

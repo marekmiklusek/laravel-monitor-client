@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace MarekMiklusek\MonitorClient\Occurrences;
 
-use Throwable;
 use DateTimeImmutable;
 use MarekMiklusek\MonitorClient\Enums\OccurrenceType;
 
-final readonly class ExceptionOccurrence extends MonitorOccurrence
+final readonly class FailedJobOccurrence extends MonitorOccurrence
 {
     /**
      * @param  array<int, array<string, mixed>>  $stack
@@ -28,33 +27,9 @@ final readonly class ExceptionOccurrence extends MonitorOccurrence
         parent::__construct($occurredAt);
     }
 
-    /**
-     * @param  array<int, array<string, mixed>>  $stack
-     * @param  array<string, mixed>  $context
-     * @param  array<int, array<string, mixed>>  $breadcrumbs
-     */
-    public static function fromThrowable(
-        Throwable $throwable,
-        DateTimeImmutable $occurredAt,
-        array $stack,
-        array $context,
-        array $breadcrumbs = [],
-    ): self {
-        return new self(
-            occurredAt: $occurredAt,
-            exceptionClass: $throwable::class,
-            message: $throwable->getMessage(),
-            file: $throwable->getFile(),
-            line: $throwable->getLine(),
-            stack: $stack,
-            context: $context,
-            breadcrumbs: $breadcrumbs,
-        );
-    }
-
     public function type(): OccurrenceType
     {
-        return OccurrenceType::Exception;
+        return OccurrenceType::FailedJob;
     }
 
     /**
