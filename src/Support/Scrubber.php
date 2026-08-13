@@ -18,6 +18,8 @@ final readonly class Scrubber
 
     private const int MAX_DEPTH = 10;
 
+    private const int MAX_VALUE_LENGTH = 10_000;
+
     /**
      * @var array<int, string>
      */
@@ -58,6 +60,7 @@ final readonly class Scrubber
             $scrubbed[$key] = match (true) {
                 is_array($value) => $this->scrub($value, $depth + 1),
                 is_object($value) => $this->stringify($value),
+                is_string($value) => $this->cap($value),
                 default => $value,
             };
         }
@@ -100,6 +103,17 @@ final readonly class Scrubber
         }
 
         return self::OBJECT;
+    }
+
+    private function cap(string $value): string
+    {
+        if (mb_strlen($value) <= self::MAX_VALUE_LENGTH) {
+            return $value;
+        }
+
+        $omitted = mb_strlen($value) - self::MAX_VALUE_LENGTH;
+
+        return mb_substr($value, 0, self::MAX_VALUE_LENGTH).sprintf('... [truncated, %d chars omitted]', $omitted);
     }
 
     private function matches(string $key): bool

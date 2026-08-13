@@ -25,12 +25,18 @@ final readonly class PayloadGuard
         $guarded = [];
 
         foreach ($payload as $key => $value) {
-            $guarded[Utf8::repair($key)] = $this->value($value, 1);
+            $guarded[$this->key($key)] = $this->value($value, 1);
         }
 
         return $guarded;
     }
 
+    /**
+     * @template TKey of array-key
+     *
+     * @param  TKey  $key
+     * @return (TKey is string ? string : int)
+     */
     private function key(string|int $key): string|int
     {
         return is_string($key) ? Utf8::repair($key) : $key;

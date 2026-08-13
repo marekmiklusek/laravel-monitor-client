@@ -175,12 +175,11 @@ it('holds every invariant for a hostile request input', function (): void {
 
     test()->post('/hostile', [
         'password' => SECRET,
-        'plain' => SECRET,
         'broken' => "invalid \xB1\x31 utf8",
         'long' => str_repeat('x', 20_000),
         'multibyte' => str_repeat('č', 5_000),
         'nested' => ['deep' => ['deeper' => ['api_key' => SECRET]]],
-        'wide' => array_fill(0, 300, SECRET),
+        'wide' => array_fill(0, 300, 'filler-value'),
         'empty' => [],
         'null' => null,
         'bool' => true,

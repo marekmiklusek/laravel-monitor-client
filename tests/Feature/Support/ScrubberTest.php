@@ -80,6 +80,16 @@ it('redacts the whole value even when it is an array', function (): void {
     expect($scrubbed['secret'])->toBe('[REDACTED]');
 });
 
+it('caps an oversized string value', function (): void {
+    $scrubber = new Scrubber([]);
+
+    $scrubbed = $scrubber->scrub(['blob' => str_repeat('x', 25_000)]);
+
+    expect(mb_strlen((string) $scrubbed['blob']))
+        ->toBe(10_000 + mb_strlen('... [truncated, 15000 chars omitted]'))
+        ->and((string) $scrubbed['blob'])->toEndWith('... [truncated, 15000 chars omitted]');
+});
+
 it('leaves untouched data alone', function (): void {
     $scrubber = new Scrubber(['password']);
 

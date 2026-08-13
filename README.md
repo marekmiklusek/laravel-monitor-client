@@ -164,6 +164,10 @@ error, a broken boot – is written to the log as a `warning`:
 - channel comes from `monitor.log_channel` (`null` = application default),
 - the same failure type is logged at most once per `monitor.log_throttle_minutes`
   (default 5), so an unreachable monitoring service cannot flood the log,
+- after 3 consecutive transport failures the client **stops sending for 60
+  seconds** (per process) and then retries. An unreachable central therefore
+  costs a queue worker at most a few timeouts per minute instead of one per
+  failed job attempt. The pause itself is logged as a `circuit-open` warning,
 - if the cache is unavailable, throttling is skipped and the warning is logged
   anyway,
 - while a warning is being written the package collects nothing, so a failure
@@ -265,6 +269,11 @@ so the client keeps itself inside those caps:
   the same limit the central validates against, with the last slot spent on a
   `[truncated]` marker naming how many were omitted. Request input and job
   payloads were already capped at 100 keys when they were collected.
+- **Context values.** Every string value in a scrubbed context is cut to
+  10 000 characters at collection time, and a log message is cut to 64 000
+  characters at intake. Both exist for the host's sake: without them a single
+  `Log::error($fiveMegabyteBody)` would sit in the buffer – multiplied by up
+  to 200 occurrences and 30 breadcrumbs – until the flush.
 - **Truncation.** An occurrence too large to fit a batch on its own is never
   dropped. It is shrunk in order – breadcrumbs first, then the stack down to
   10 frames, then the context – and stops as soon as it fits. Whatever is sent
@@ -316,6 +325,17 @@ on:
 
 The buffer is keyed by the throwable instance itself (`SplObjectStorage`), so
 the same exception reported twice only ever produces one occurrence.
+
+### Octane and long-running runtimes
+
+Web and console context are told apart **per occurrence** – a request without
+`argv` in its server parameters is treated as a web request even when PHP runs
+under a CLI SAPI, which is exactly the situation inside an Octane worker. The
+buffer, breadcrumbs and dropped counter are cleared on every flush, and
+`terminating` runs after each Octane request, so state does not bleed between
+requests. Octane is supported by design but not yet battle-tested in
+production – if you run it, watch the application log for
+`Laravel Monitor client` warnings after deploying.
 
 ### Registering the exception hook
 
@@ -503,6 +523,18 @@ a *different* page and are a common way for a one-time token to escape.
 The `authorization` and `cookie` headers are **never collected** – not even
 in redacted form, they simply are not read. Uploaded files are represented
 only by name and size; their content never leaves the application.
+
+**Scrubbing matches keys, not values.** A secret stored under an unrelated
+key – `['note' => 'my password is hunter2']`, a token pasted into a free-text
+field – travels in clear, because no key in `monitor.scrub_keys` matches it.
+No key-based scrubber can catch that; if your forms carry secrets in free
+text, switch `monitor.collect_input` off.
+
+**Scrubbing fails closed.** When the configuration cannot be resolved at
+collection time – a broken container binding, a failing config repository –
+the client does not fall back to collecting unscrubbed data: request input is
+skipped entirely and the whole query string is dropped from the collected URL
+and referer. Missing data over leaked data.
 
 **Objects never leave as objects.** Anything that is not a scalar or an array –
 an Eloquent model dropped into a log context, a DTO, a value object – is

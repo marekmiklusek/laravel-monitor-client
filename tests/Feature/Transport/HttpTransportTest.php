@@ -128,6 +128,69 @@ it('still clears the buffer when sending fails', function (): void {
     expect($monitor->bufferCount())->toBe(0);
 });
 
+it('pauses sending after repeated transport failures', function (): void {
+    $attempts = 0;
+
+    Http::fake(function () use (&$attempts): void {
+        $attempts++;
+
+        throw new ConnectionException('Could not resolve host');
+    });
+
+    $monitor = app(Monitor::class);
+
+    foreach (range(1, 5) as $index) {
+        $monitor->report(new RuntimeException('boom '.$index));
+        $monitor->flush();
+    }
+
+    expect($attempts)->toBe(3);
+});
+
+it('resumes sending once a response comes back', function (): void {
+    $attempts = 0;
+
+    Http::fake(function () use (&$attempts) {
+        $attempts++;
+
+        if ($attempts !== 3) {
+            throw new ConnectionException('Could not resolve host');
+        }
+
+        return Http::response('ok');
+    });
+
+    $monitor = app(Monitor::class);
+
+    foreach (range(1, 5) as $index) {
+        $monitor->report(new RuntimeException('boom '.$index));
+        $monitor->flush();
+    }
+
+    expect($attempts)->toBe(5);
+});
+
+it('retries after the cooldown has passed', function (): void {
+    $attempts = 0;
+
+    Http::fake(function () use (&$attempts): void {
+        $attempts++;
+
+        throw new ConnectionException('Could not resolve host');
+    });
+
+    $transport = new MarekMiklusek\MonitorClient\Transport\HttpTransport(
+        config: app(MarekMiklusek\MonitorClient\MonitorConfig::class),
+        cooldownSeconds: 0.0,
+    );
+
+    foreach (range(1, 5) as $index) {
+        $transport->send(['occurrences' => []]);
+    }
+
+    expect($attempts)->toBe(5);
+});
+
 it('swallows a malformed url', function (): void {
     Http::fake();
 

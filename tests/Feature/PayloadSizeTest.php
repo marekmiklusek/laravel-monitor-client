@@ -145,6 +145,27 @@ it('shortens a one megabyte message so the occurrence fits', function (): void {
         ->and(mb_strlen((string) json_encode($batch), '8bit'))->toBeLessThanOrEqual(400 * 1024);
 });
 
+it('caps a giant log message already at intake', function (): void {
+    Log::error(str_repeat('m', 100_000));
+
+    app(Monitor::class)->flush();
+
+    $occurrence = sentPayloadBatches()[0][0];
+
+    expect($occurrence['message'])->toEndWith(sprintf('... [truncated, %d chars omitted]', 64_000 - 8000));
+});
+
+it('does not flag an occurrence as truncated when values are only normalised', function (): void {
+    Log::error('entry', ['count' => INF]);
+
+    app(Monitor::class)->flush();
+
+    $occurrence = sentPayloadBatches()[0][0];
+
+    expect($occurrence)->not->toHaveKey('truncated')
+        ->and($occurrence['context']['count'])->toBe('INF');
+});
+
 it('cuts the message even when the payload would otherwise fit', function (): void {
     Log::error(str_repeat('m', 9000));
 

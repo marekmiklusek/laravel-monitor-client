@@ -22,10 +22,10 @@ final readonly class OccurrenceTruncator
      */
     public function truncate(array $occurrence, int $maxBytes, int $maxMessageLength = self::DEFAULT_MESSAGE_LENGTH): array
     {
-        $capped = $this->capMessages($this->guard->guard($occurrence), $maxMessageLength);
+        $guarded = $this->guard->guard($occurrence);
+        $occurrence = $this->capMessages($guarded, $maxMessageLength);
 
-        $truncated = $capped !== $occurrence;
-        $occurrence = $capped;
+        $truncated = $occurrence !== $guarded;
 
         if ($this->fits($occurrence, $maxBytes)) {
             return $truncated ? ['truncated' => true, ...$occurrence] : $occurrence;

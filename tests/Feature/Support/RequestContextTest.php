@@ -159,6 +159,24 @@ it('omits command arguments when input collection is disabled', function (): voi
     expect($context['command'])->toBe(['name' => 'app:sync']);
 });
 
+it('cannot catch a secret hidden under an innocent key', function (): void {
+    $this->app['request']->merge(['note' => 'my password is hunter2']);
+
+    $context = reportedContext(console: false);
+
+    expect($context['input']['note'])->toBe('my password is hunter2');
+});
+
+it('treats a console runtime without argv as a web request', function (): void {
+    $this->app['request']->server->remove('argv');
+    $this->app['request']->merge(['name' => 'bob']);
+
+    $context = reportedContext(console: true);
+
+    expect($context)->not->toHaveKey('command')
+        ->and($context['input'])->toMatchArray(['name' => 'bob']);
+});
+
 it('omits the command when argv is unavailable', function (): void {
     $this->app['request']->server->remove('argv');
 

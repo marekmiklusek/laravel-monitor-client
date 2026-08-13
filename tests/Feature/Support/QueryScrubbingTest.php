@@ -105,14 +105,14 @@ it('truncates a very long url but redacts it first', function (): void {
         ->and(urldecode((string) $context['url']))->toContain('api_key=[REDACTED]');
 });
 
-it('leaves the query alone when the config cannot be resolved', function (): void {
+it('drops the whole query when the config cannot be resolved', function (): void {
     app()->bind(MonitorConfig::class, function (): never {
         throw new RuntimeException('container broken');
     });
 
     $context = crashContext('/crashes?api_key=k_live_SECRET');
 
-    expect($context['url'])->toContain('api_key=k_live_SECRET');
+    expect($context['url'])->toBe('http://localhost/crashes');
 });
 
 it('keeps the secret out of the whole payload', function (): void {

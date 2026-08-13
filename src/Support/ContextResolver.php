@@ -50,12 +50,10 @@ final readonly class ContextResolver
             'headers' => $this->headers(),
         ];
 
-        if ($this->isConsole()) {
-            $command = $this->command();
+        $argv = $this->argv();
 
-            if ($command !== null) {
-                $context['command'] = $command;
-            }
+        if ($argv !== null && $this->isConsoleRuntime()) {
+            $context['command'] = $this->command($argv);
 
             return $context;
         }
@@ -86,9 +84,15 @@ final readonly class ContextResolver
             return $url;
         }
 
+        $keys = $this->scrubKeys();
+
+        if ($keys === null) {
+            return explode('?', $url, 2)[0];
+        }
+
         parse_str($query, $parameters);
 
-        $scrubbed = new Scrubber($this->scrubKeys())->scrub($parameters);
+        $scrubbed = new Scrubber($keys)->scrub($parameters);
 
         if ($scrubbed === $parameters) {
             return $url;
@@ -102,14 +106,14 @@ final readonly class ContextResolver
     }
 
     /**
-     * @return array<int, string>
+     * @return array<int, string>|null
      */
-    private function scrubKeys(): array
+    private function scrubKeys(): ?array
     {
         try {
             return app(MonitorConfig::class)->scrubKeys();
         } catch (Throwable) {
-            return [];
+            return null;
         }
     }
 
@@ -182,31 +186,34 @@ final readonly class ContextResolver
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return array<array-key, mixed>|null
      */
-    private function command(): ?array
+    private function argv(): ?array
     {
         try {
-            $includeArguments = $this->collectInput();
-
             $argv = request()->server('argv');
 
-            if (! is_array($argv)) {
-                return null;
-            }
-
-            $name = isset($argv[1]) && is_string($argv[1]) ? $argv[1] : null;
-
-            $command = ['name' => $name];
-
-            if ($includeArguments) {
-                $command['arguments'] = $this->arguments(array_slice($argv, 2));
-            }
-
-            return $command;
+            return is_array($argv) ? $argv : null;
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $argv
+     * @return array<string, mixed>
+     */
+    private function command(array $argv): array
+    {
+        $name = isset($argv[1]) && is_string($argv[1]) ? $argv[1] : null;
+
+        $command = ['name' => $name];
+
+        if ($this->collectInput()) {
+            $command['arguments'] = $this->arguments(array_slice($argv, 2));
+        }
+
+        return $command;
     }
 
     /**
@@ -283,16 +290,12 @@ final readonly class ContextResolver
         try {
             return app(MonitorConfig::class)->collectInput();
         } catch (Throwable) {
-            return true;
+            return false;
         }
     }
 
-    private function isConsole(): bool
+    private function isConsoleRuntime(): bool
     {
-        try {
-            return $this->runningInConsole ?? app()->runningInConsole();
-        } catch (Throwable) {
-            return true;
-        }
+        return $this->runningInConsole ?? in_array(PHP_SAPI, ['cli', 'phpdbg'], true);
     }
 }

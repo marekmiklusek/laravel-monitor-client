@@ -25,6 +25,8 @@ use MarekMiklusek\MonitorClient\Occurrences\HeartbeatOccurrence;
 
 final class Monitor
 {
+    private const int MAX_INTAKE_MESSAGE_LENGTH = 64_000;
+
     /**
      * @var SplObjectStorage<Throwable, ExceptionOccurrence>
      */
@@ -195,6 +197,8 @@ final class Monitor
             }
 
             $this->collecting = true;
+
+            $message = mb_substr($message, 0, self::MAX_INTAKE_MESSAGE_LENGTH);
 
             $scrubber = new Scrubber($this->config->scrubKeys());
 
