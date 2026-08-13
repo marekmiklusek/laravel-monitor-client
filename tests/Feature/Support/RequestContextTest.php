@@ -149,6 +149,66 @@ it('describes the artisan command instead of input in console context', function
     Http::assertSent(fn ($request): bool => ! str_contains((string) json_encode($request->data()), 'secret'));
 });
 
+it('redacts a long argument value that could carry a secret', function (): void {
+    $this->app['request']->server->set('argv', [
+        'artisan',
+        'tinker',
+        '--execute='.str_repeat('x', 250)."Log::error('x', ['api_key' => 'sk_live_LEAKED']);",
+    ]);
+
+    $context = reportedContext(console: true);
+
+    expect($context['command']['arguments']['execute'])->toBe('[REDACTED]');
+
+    Http::assertSent(fn ($request): bool => ! str_contains((string) json_encode($request->data()), 'sk_live_LEAKED'));
+});
+
+it('redacts a long positional argument', function (): void {
+    $this->app['request']->server->set('argv', ['artisan', 'app:sync', str_repeat('t', 250)]);
+
+    $context = reportedContext(console: true);
+
+    expect($context['command']['arguments'])->toContain('[REDACTED]');
+});
+
+it('keeps short argument values readable', function (): void {
+    $this->app['request']->server->set('argv', ['artisan', 'app:sync', '--limit=5', 'file.csv']);
+
+    $context = reportedContext(console: true);
+
+    expect($context['command']['arguments']['limit'])->toBe('5')
+        ->and($context['command']['arguments'])->toContain('file.csv');
+});
+
+it('collects no arguments when the config cannot be resolved', function (): void {
+    $this->app['request']->server->set('argv', ['artisan', 'app:sync', '--password=secret']);
+
+    app()->bind(MonitorConfig::class, function (): never {
+        throw new RuntimeException('container broken');
+    });
+
+    $monitor = new Monitor(
+        config: new MonitorConfig(app('config')),
+        transport: new HttpTransport(new MonitorConfig(app('config'))),
+        payloadBuilder: new PayloadBuilder,
+        contextResolver: new ContextResolver(true),
+        stackTraceFormatter: new StackTraceFormatter,
+        environment: 'testing',
+    );
+
+    $monitor->report(new RuntimeException('boom'));
+    $monitor->flush();
+
+    Http::assertSent(function ($request): bool {
+        $command = $request->data()['occurrences'][0]['context']['command'];
+
+        expect($command)->toBe(['name' => 'app:sync'])
+            ->and((string) json_encode($request->data()))->not->toContain('secret');
+
+        return true;
+    });
+});
+
 it('omits command arguments when input collection is disabled', function (): void {
     config()->set('monitor.collect_input', false);
 

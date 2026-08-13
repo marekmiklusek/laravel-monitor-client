@@ -494,8 +494,9 @@ Besides `url`, `method` and `user_id`, the context carries the request
 placeholder) and a whitelist of `headers` (`accept`, `content-type`,
 `user-agent`, `referer`, `origin`, `x-request-id`). In console context
 `input` is replaced by `command` with the artisan command name and its
-arguments. Set `monitor.collect_input` to `false` to collect neither
-input nor command arguments.
+arguments, the latter scrubbed and capped at 200 characters per value –
+see [Security](#security). Set `monitor.collect_input` to `false` to collect
+neither input nor command arguments.
 
 `url` and every collected header are truncated to 1000 characters as well –
 after their query strings are redacted, never before, so a long URL cannot
@@ -529,6 +530,15 @@ key – `['note' => 'my password is hunter2']`, a token pasted into a free-text
 field – travels in clear, because no key in `monitor.scrub_keys` matches it.
 No key-based scrubber can catch that; if your forms carry secrets in free
 text, switch `monitor.collect_input` off.
+
+**Artisan arguments are treated as suspect.** Deploy scripts and cron entries
+routinely carry credentials on the command line, and an argument value is a
+plain string the key-based scrub list cannot see into – `--execute="…"` was
+enough to smuggle a whole snippet past it. So `--key=value` arguments are
+redacted when the key matches the scrub list, and **any** argument value
+longer than 200 characters – flag or positional – is replaced with
+`[REDACTED]` whatever it holds. Short values stay readable, which is what
+makes a command context useful in the first place.
 
 **Scrubbing fails closed.** When the configuration cannot be resolved at
 collection time – a broken container binding, a failing config repository –

@@ -32,6 +32,10 @@ final readonly class ContextResolver
 
     private const int MAX_VALUE_LENGTH = 1000;
 
+    private const int MAX_ARGUMENT_LENGTH = 200;
+
+    private const string REDACTED = '[REDACTED]';
+
     public function __construct(
         private ?bool $runningInConsole = null,
     ) {
@@ -222,6 +226,8 @@ final readonly class ContextResolver
      */
     private function arguments(array $argv): array
     {
+        $scrubber = new Scrubber($this->scrubKeys() ?? []);
+
         $arguments = [];
 
         foreach ($argv as $argument) {
@@ -230,15 +236,35 @@ final readonly class ContextResolver
             }
 
             if (preg_match('/^--([^=]+)=(.*)$/', $argument, $matches) === 1) {
-                $arguments[$matches[1]] = mb_substr($matches[2], 0, self::MAX_VALUE_LENGTH);
+                $arguments[$matches[1]] = $this->argumentValue($scrubber, $matches[1], $matches[2]);
 
                 continue;
             }
 
-            $arguments[] = mb_substr($argument, 0, self::MAX_VALUE_LENGTH);
+            $arguments[] = $this->positional($argument);
         }
 
         return $arguments;
+    }
+
+    private function argumentValue(Scrubber $scrubber, string $key, string $value): string
+    {
+        $scrubbed = $scrubber->scrub([$key => $value]);
+
+        if ($scrubbed[$key] !== $value) {
+            return self::REDACTED;
+        }
+
+        return $this->positional($value);
+    }
+
+    private function positional(string $value): string
+    {
+        if (mb_strlen($value) > self::MAX_ARGUMENT_LENGTH) {
+            return self::REDACTED;
+        }
+
+        return $value;
     }
 
     /**

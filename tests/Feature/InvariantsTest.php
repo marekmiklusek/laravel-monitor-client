@@ -203,6 +203,27 @@ it('holds every invariant for a hostile request input', function (): void {
     assertInvariants($payloads);
 });
 
+it('holds every invariant for hostile artisan arguments', function (): void {
+    app('request')->server->set('argv', [
+        'artisan',
+        'tinker',
+        '--execute='.str_repeat('x', 300).SECRET,
+        '--password='.SECRET,
+        SECRET.str_repeat('y', 300),
+    ]);
+
+    $monitor = app(Monitor::class);
+
+    $monitor->report(new RuntimeException('crashed in console'));
+    $monitor->flush();
+
+    $payloads = capturedPayloads();
+
+    expect($payloads)->not->toBeEmpty();
+
+    assertInvariants($payloads);
+});
+
 it('holds every invariant for a hostile query string', function (): void {
     Illuminate\Support\Facades\Route::get('/hostile-query', function (): never {
         throw new RuntimeException('crashed');
