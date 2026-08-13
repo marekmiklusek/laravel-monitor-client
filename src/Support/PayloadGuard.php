@@ -61,7 +61,11 @@ final readonly class PayloadGuard
         }
 
         if (is_float($value) && ! is_finite($value)) {
-            return (string) $value;
+            return match (true) {
+                is_nan($value) => 'NAN',
+                $value > 0 => 'INF',
+                default => '-INF',
+            };
         }
 
         if ($value === null || is_scalar($value)) {

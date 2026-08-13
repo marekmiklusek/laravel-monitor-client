@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Tests\Fakes\FailingTransport;
 use Tests\Fakes\RecordingTransport;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Http;
 use MarekMiklusek\MonitorClient\Monitor;
 use Illuminate\Console\Scheduling\Schedule;
@@ -114,6 +115,17 @@ it('flushes the buffer when a console command finishes', function (): void {
     Http::assertSentCount(1);
 });
 
+it('flushes the buffer when the worker loops between jobs', function (): void {
+    $monitor = app(Monitor::class);
+    $monitor->report(new RuntimeException('reported after the job finished'));
+
+    app(Dispatcher::class)->dispatch(new Looping('redis', 'default'));
+
+    expect($monitor->bufferCount())->toBe(0);
+
+    Http::assertSentCount(1);
+});
+
 it('flushes the buffer when the queue worker stops', function (): void {
     $monitor = app(Monitor::class);
     $monitor->report(new RuntimeException('from a worker'));
@@ -142,4 +154,11 @@ it('registers the heartbeat on the schedule', function (): void {
 
     expect($commands->contains(fn (string $command): bool => str_contains($command, 'monitor:heartbeat')))
         ->toBeTrue();
+});
+
+it('keeps the heartbeat running in maintenance mode', function (): void {
+    $event = collect(app(Schedule::class)->events())
+        ->first(fn ($event): bool => str_contains((string) $event->command, 'monitor:heartbeat'));
+
+    expect($event->evenInMaintenanceMode)->toBeTrue();
 });

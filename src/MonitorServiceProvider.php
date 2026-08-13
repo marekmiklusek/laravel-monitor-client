@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarekMiklusek\MonitorClient;
 
 use Throwable;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Log\Events\MessageLogged;
@@ -28,6 +29,8 @@ use MarekMiklusek\MonitorClient\Listeners\MessageLoggedListener;
 
 final class MonitorServiceProvider extends ServiceProvider
 {
+    private static bool $shutdownRegistered = false;
+
     public function register(): void
     {
         $this->silently(function (): void {
@@ -143,6 +146,8 @@ final class MonitorServiceProvider extends ServiceProvider
             $this->flush();
         });
 
+        $this->registerShutdownFlush();
+
         $events = $this->app->make(Dispatcher::class);
 
         foreach ([
@@ -150,6 +155,7 @@ final class MonitorServiceProvider extends ServiceProvider
             JobExceptionOccurred::class,
             JobProcessed::class,
             JobFailed::class,
+            Looping::class,
             WorkerStopping::class,
         ] as $event) {
             $events->listen($event, function (): void {
@@ -158,13 +164,25 @@ final class MonitorServiceProvider extends ServiceProvider
         }
     }
 
+    private function registerShutdownFlush(): void
+    {
+        if (self::$shutdownRegistered) {
+            return;
+        }
+
+        self::$shutdownRegistered = true;
+
+        register_shutdown_function($this->flush(...));
+    }
+
     private function registerSchedule(): void
     {
         $this->app->booted(function (): void {
             $this->silently(function (): void {
                 $this->app->make(Schedule::class)
                     ->command(HeartbeatCommand::class)
-                    ->everyFiveMinutes();
+                    ->everyFiveMinutes()
+                    ->evenInMaintenanceMode();
             });
         });
     }

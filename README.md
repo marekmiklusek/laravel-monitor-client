@@ -304,7 +304,15 @@ on:
 - `CommandFinished` – end of an Artisan command
 - `JobExceptionOccurred` – every failed attempt, not just the final one
 - `JobProcessed` / `JobFailed` – end of a queued job
+- `Looping` – start of every worker iteration, so an exception the worker
+  reported *after* the job's own events (which is how the queue worker
+  sequences them) leaves promptly instead of waiting for the next job
 - `WorkerStopping` – `queue:restart`, so a partial buffer still ships
+- PHP shutdown – a last-resort flush registered via
+  `register_shutdown_function`, so a fatal error (out of memory, exceeded
+  `max_execution_time`) that Laravel reports during shutdown is still
+  delivered even though `terminating` never runs. A crash severe enough to
+  break the flush itself only costs the report, never more.
 
 The buffer is keyed by the throwable instance itself (`SplObjectStorage`), so
 the same exception reported twice only ever produces one occurrence.
@@ -344,6 +352,11 @@ no exception is ever reported twice.
 The service provider schedules `monitor:heartbeat` every five minutes, but only
 when the package is enabled for the current environment. Make sure the host
 application runs the scheduler.
+
+The heartbeat runs **even in maintenance mode**: `php artisan down` during a
+deploy would otherwise stop the heartbeats and raise a false down alert, while
+the actual point of the heartbeat is to prove that the server, cron and the
+application process are alive.
 
 You can also send one by hand:
 
