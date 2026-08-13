@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Database\Eloquent\Model;
 use MarekMiklusek\MonitorClient\Monitor;
 use MarekMiklusek\MonitorClient\Enums\LogLevel;
 use MarekMiklusek\MonitorClient\Support\Scrubber;
@@ -33,31 +34,19 @@ it('replaces a plain object nested in an array', function (): void {
         ->toBe(['deep' => ['deeper' => '[OBJECT]']]);
 });
 
-it('keeps a stringable value', function (): void {
+it('collapses a stringable instead of casting it', function (): void {
     $stringable = new class implements Stringable
     {
         public function __toString(): string
         {
-            return 'order #4711';
+            return 'leaky-value';
         }
     };
 
-    expect(scrubbed($stringable))->toBe('order #4711');
+    expect(scrubbed($stringable))->toBe('[OBJECT]');
 });
 
-it('truncates a very long stringable value', function (): void {
-    $stringable = new class implements Stringable
-    {
-        public function __toString(): string
-        {
-            return str_repeat('s', 5000);
-        }
-    };
-
-    expect(mb_strlen((string) scrubbed($stringable)))->toBe(1000);
-});
-
-it('falls back when a stringable throws', function (): void {
+it('never invokes a throwing stringable', function (): void {
     $broken = new class implements Stringable
     {
         public function __toString(): string
@@ -67,6 +56,39 @@ it('falls back when a stringable throws', function (): void {
     };
 
     expect(scrubbed($broken))->toBe('[OBJECT]');
+});
+
+it('collapses an eloquent model instead of unfolding its attributes', function (): void {
+    $model = new class extends Model
+    {
+        protected $guarded = [];
+    };
+
+    $model->forceFill(['email' => 'customer@example.test', 'api_key' => 'k_live_123']);
+
+    expect(scrubbed($model))->toBe('[OBJECT]');
+});
+
+it('never ships model attributes through a log context', function (): void {
+    $model = new class extends Model
+    {
+        protected $guarded = [];
+    };
+
+    $model->forceFill(['address' => 'Hidden Street 7']);
+
+    Log::error('a model slipped into the context', ['user' => $model]);
+
+    app(Monitor::class)->flush();
+
+    Http::assertSent(function ($request): bool {
+        $body = (string) json_encode($request->data());
+
+        expect($request->data()['occurrences'][0]['context']['user'])->toBe('[OBJECT]')
+            ->and($body)->not->toContain('Hidden Street 7');
+
+        return true;
+    });
 });
 
 it('keeps a date as an atom string', function (): void {

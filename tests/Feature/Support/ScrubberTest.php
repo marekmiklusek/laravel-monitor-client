@@ -42,6 +42,34 @@ it('matches keys case insensitively', function (): void {
     ]);
 });
 
+it('matches a scrub key anywhere inside the key', function (): void {
+    $scrubber = new Scrubber(['token', 'secret']);
+
+    $scrubbed = $scrubber->scrub([
+        '_token' => 'csrf-value',
+        'api_token' => 'tok_live_123',
+        'ACCESS_TOKEN' => 'at_live_123',
+        'client_secret' => 'cs_live_123',
+        'note' => 'kept',
+    ]);
+
+    expect($scrubbed)->toBe([
+        '_token' => '[REDACTED]',
+        'api_token' => '[REDACTED]',
+        'ACCESS_TOKEN' => '[REDACTED]',
+        'client_secret' => '[REDACTED]',
+        'note' => 'kept',
+    ]);
+});
+
+it('ignores an empty scrub key instead of redacting everything', function (): void {
+    $scrubber = new Scrubber(['', 'password']);
+
+    $scrubbed = $scrubber->scrub(['name' => 'bob', 'password' => 'hunter2']);
+
+    expect($scrubbed)->toBe(['name' => 'bob', 'password' => '[REDACTED]']);
+});
+
 it('redacts the whole value even when it is an array', function (): void {
     $scrubber = new Scrubber(['secret']);
 

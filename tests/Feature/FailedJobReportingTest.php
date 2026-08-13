@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Tests\Fakes\FakeJob;
+use Tests\Fakes\LeakyJobCommand;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Queue\Events\JobFailed;
 use MarekMiklusek\MonitorClient\Monitor;
@@ -63,17 +64,40 @@ it('carries the job class, connection, queue and attempts', function (): void {
 it('scrubs the job payload', function (): void {
     failJob(new RuntimeException('boom'), new FakeJob(payload: [
         'uuid' => 'abc-123',
-        'data' => [
-            'command' => ['email' => 'customer@example.com', 'password' => 'hunter2'],
-        ],
+        'tags' => ['email' => 'customer@example.com', 'password' => 'hunter2'],
     ]));
 
     Http::assertSent(function ($request): bool {
         $payload = $request->data()['occurrences'][0]['context']['payload'];
 
         expect($payload['uuid'])->toBe('abc-123')
-            ->and($payload['data']['command']['email'])->toBe('customer@example.com')
-            ->and($payload['data']['command']['password'])->toBe('[REDACTED]');
+            ->and($payload['tags']['email'])->toBe('customer@example.com')
+            ->and($payload['tags']['password'])->toBe('[REDACTED]');
+
+        return true;
+    });
+});
+
+it('never ships the serialized job object from a realistic payload', function (): void {
+    $command = serialize(new LeakyJobCommand);
+
+    failJob(new RuntimeException('boom'), new FakeJob(payload: [
+        'uuid' => 'abc-123',
+        'displayName' => 'App\\Jobs\\ChargeOrder',
+        'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+        'maxTries' => 3,
+        'data' => [
+            'commandName' => 'App\\Jobs\\ChargeOrder',
+            'command' => $command,
+        ],
+    ]));
+
+    Http::assertSent(function ($request): bool {
+        $payload = $request->data()['occurrences'][0]['context']['payload'];
+
+        expect($payload['data']['command'])->toBe('[SERIALIZED]')
+            ->and($payload['data']['commandName'])->toBe('App\\Jobs\\ChargeOrder')
+            ->and((string) json_encode($request->data()))->not->toContain('sk_live_LEAKED');
 
         return true;
     });

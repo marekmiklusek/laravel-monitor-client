@@ -128,7 +128,7 @@ Config-only options (no env variable):
 | `monitor.log_channel`        | `null`                                                                                        | Channel for silenced-failure warnings, `null` = default |
 | `monitor.log_throttle_minutes` | `5`                                                                                         | Same failure type is logged at most once per window    |
 | `monitor.ignored_exceptions` | `NotFoundHttpException`, `ValidationException`, `AuthenticationException`, `AuthorizationException` | Matched with `instanceof`, so subclasses are ignored too |
-| `monitor.scrub_keys`         | `password`, `password_confirmation`, `token`, `secret`, `authorization`, `api_key`, `credit_card` | Replaced with `[REDACTED]`, case insensitive, at any depth |
+| `monitor.scrub_keys`         | `password`, `token`, `secret`, `authorization`, `api_key`, `apikey`, `credit_card`, `signature`, `private_key` | Replaced with `[REDACTED]`, substring match, case insensitive, at any depth |
 
 **Nothing is collected at all** unless `monitor.enabled` is true, a URL is set,
 and the current environment is listed in `monitor.environments`. Installing the
@@ -192,7 +192,9 @@ that killed the job (class, message, file, line, 30 stack frames) plus a context
 with the job class, connection, queue, attempt count and the job payload. The
 payload goes through the same `Scrubber` and the same limits as request input –
 max depth 3, max 100 keys, values truncated to 1000 characters, objects replaced
-with `[OBJECT]`.
+with `[OBJECT]`. The `data.command` entry – the PHP-serialized job instance,
+which would carry every job property in plain text – is replaced with
+`[SERIALIZED]`; the job class name survives in `data.commandName`.
 
 `JobFailed` also flushes the buffer, so a failed job leaves the worker as one
 HTTP request.
@@ -410,7 +412,11 @@ php artisan monitor:heartbeat
         "attempts": 3,
         "payload": {
           "uuid": "9f1c...",
-          "displayName": "App\\Jobs\\ChargeOrder"
+          "displayName": "App\\Jobs\\ChargeOrder",
+          "data": {
+            "commandName": "App\\Jobs\\ChargeOrder",
+            "command": "[SERIALIZED]"
+          }
         }
       }
     },
@@ -465,11 +471,14 @@ push a secret past the cut.
 ## Security
 
 Values of keys listed in `monitor.scrub_keys` are replaced with `[REDACTED]`
-before anything leaves the application. Matching is case insensitive and
-recursive through the whole context, including request input, command
-arguments, failed job payloads, log context and breadcrumb context. Matching
-works on array keys, which is why objects are collapsed to `[OBJECT]` rather
-than serialised – see below.
+before anything leaves the application. An entry matches when it appears
+**anywhere inside the key**, case insensitively and recursive through the whole
+context – request input, command arguments, failed job payloads, log context
+and breadcrumb context. The default `token` therefore also covers `_token`,
+`api_token` and `access_token`; `secret` covers `client_secret`. Keep custom
+entries specific enough not to swallow harmless keys. Matching works on array
+keys, which is why objects are collapsed to `[OBJECT]` rather than serialised –
+see below.
 
 **Query strings are scrubbed too.** A secret passed in the URL rather than the
 body – `?api_key=…`, a password-reset `?token=…`, a signed `?signature=…` –
@@ -486,9 +495,18 @@ only by name and size; their content never leaves the application.
 an Eloquent model dropped into a log context, a DTO, a value object – is
 replaced with `[OBJECT]` before it is serialised. Without that, `json_encode`
 would unfold its public properties and ship whatever they hold, past the
-`scrub_keys` list, which only ever sees array keys. `Stringable` values are
-kept as their string (truncated to 1000 characters), dates as ATOM strings and
-enums as their value or name, because those are bounded and safe.
+`scrub_keys` list, which only ever sees array keys. The same applies to
+`Stringable` objects: since PHP 8.0 **every** class with a `__toString()` is
+implicitly `Stringable` – an Eloquent model casts to its full attribute JSON –
+so casting objects to strings would reopen the exact hole the `[OBJECT]`
+placeholder closes. Only provably bounded types survive: dates as ATOM strings
+and enums as their value or name.
+
+**The serialized job object never leaves either.** A failed job's payload
+carries `data.command` – the PHP-serialized job instance, a plain-text dump of
+every constructor argument and property that a key-based scrub list can never
+see inside. It is replaced with `[SERIALIZED]` before the payload is collected;
+the job class name stays available in `data.commandName` and `context.job`.
 
 ## Testing
 

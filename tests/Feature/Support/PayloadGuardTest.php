@@ -29,7 +29,7 @@ it('replaces a plain object', function (): void {
     expect(guarded(new stdClass))->toBe('[OBJECT]');
 });
 
-it('keeps a stringable', function (): void {
+it('collapses a stringable instead of casting it', function (): void {
     $stringable = new class implements Stringable
     {
         public function __toString(): string
@@ -38,10 +38,10 @@ it('keeps a stringable', function (): void {
         }
     };
 
-    expect(guarded($stringable))->toBe('order #1');
+    expect(guarded($stringable))->toBe('[OBJECT]');
 });
 
-it('falls back when a stringable throws', function (): void {
+it('never invokes a throwing stringable', function (): void {
     $broken = new class implements Stringable
     {
         public function __toString(): string

@@ -6,6 +6,7 @@ use Tests\Fakes\FakeJob;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Database\Eloquent\Model;
 use MarekMiklusek\MonitorClient\Monitor;
 use Illuminate\Contracts\Events\Dispatcher;
 
@@ -54,6 +55,17 @@ function rawHostileValues(): array
                 throw new RuntimeException('exploded');
             }
         },
+        new class implements Stringable
+        {
+            public function __toString(): string
+            {
+                return SECRET;
+            }
+        },
+        (new class extends Model
+        {
+            protected $guarded = [];
+        })->forceFill(['api_key' => SECRET, 'email' => SECRET]),
         fn (): string => 'closure',
         $recursive,
         NAN,

@@ -183,18 +183,23 @@ return [
     |--------------------------------------------------------------------------
     |
     | Keys whose values are replaced with [REDACTED] before leaving the
-    | application. Matched case insensitively, at any nesting depth.
+    | application. An entry matches when it appears anywhere inside the key,
+    | case insensitively, at any nesting depth: 'token' also covers '_token',
+    | 'api_token' and 'access_token'. Keep entries specific enough not to
+    | swallow harmless keys.
     |
     */
 
     'scrub_keys' => [
         'password',
-        'password_confirmation',
         'token',
         'secret',
         'authorization',
         'api_key',
+        'apikey',
         'credit_card',
+        'signature',
+        'private_key',
     ],
 
 ];

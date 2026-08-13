@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace MarekMiklusek\MonitorClient\Support;
 
 use UnitEnum;
-use Throwable;
 use BackedEnum;
-use Stringable;
 use DateTimeInterface;
 
 final readonly class Scrubber
@@ -20,15 +18,20 @@ final readonly class Scrubber
 
     private const int MAX_DEPTH = 10;
 
-    private const int MAX_VALUE_LENGTH = 1000;
+    /**
+     * @var array<int, string>
+     */
+    private array $needles;
 
     /**
      * @param  array<int, string>  $keys
      */
-    public function __construct(
-        private array $keys,
-    ) {
-        // ...
+    public function __construct(array $keys)
+    {
+        $this->needles = array_values(array_filter(
+            array_map(mb_strtolower(...), $keys),
+            static fn (string $needle): bool => $needle !== '',
+        ));
     }
 
     /**
@@ -96,19 +99,13 @@ final readonly class Scrubber
             return $value->name;
         }
 
-        if ($value instanceof Stringable) {
-            try {
-                return mb_substr((string) $value, 0, self::MAX_VALUE_LENGTH);
-            } catch (Throwable) {
-                return self::OBJECT;
-            }
-        }
-
         return self::OBJECT;
     }
 
     private function matches(string $key): bool
     {
-        return array_any($this->keys, fn (string $needle): bool => mb_strtolower($key) === mb_strtolower($needle));
+        $key = mb_strtolower($key);
+
+        return array_any($this->needles, fn (string $needle): bool => str_contains($key, $needle));
     }
 }

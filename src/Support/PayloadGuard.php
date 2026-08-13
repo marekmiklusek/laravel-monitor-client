@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace MarekMiklusek\MonitorClient\Support;
 
 use UnitEnum;
-use Throwable;
 use BackedEnum;
-use Stringable;
 use DateTimeInterface;
 
 final readonly class PayloadGuard
@@ -85,14 +83,6 @@ final readonly class PayloadGuard
 
         if ($value instanceof UnitEnum) {
             return $value->name;
-        }
-
-        if ($value instanceof Stringable) {
-            try {
-                return (string) $value;
-            } catch (Throwable) {
-                return self::OBJECT;
-            }
         }
 
         return self::OBJECT;

@@ -11,6 +11,8 @@ use MarekMiklusek\MonitorClient\Support\Silencer;
 
 final readonly class JobFailedListener
 {
+    private const string SERIALIZED = '[SERIALIZED]';
+
     private const int MAX_DEPTH = 3;
 
     private const int MAX_KEYS = 100;
@@ -50,9 +52,15 @@ final readonly class JobFailedListener
      */
     private function payload(Job $job): array
     {
+        $payload = $job->payload();
+
+        if (isset($payload['data']) && is_array($payload['data']) && array_key_exists('command', $payload['data'])) {
+            $payload['data']['command'] = self::SERIALIZED;
+        }
+
         $budget = self::MAX_KEYS;
 
-        return $this->sanitize($job->payload(), 1, $budget);
+        return $this->sanitize($payload, 1, $budget);
     }
 
     /**
