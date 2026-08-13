@@ -13,6 +13,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Attributes\Description;
 use MarekMiklusek\MonitorClient\MonitorConfig;
 use MarekMiklusek\MonitorClient\PayloadBuilder;
+use MarekMiklusek\MonitorClient\Support\PayloadGuard;
 use MarekMiklusek\MonitorClient\Occurrences\HeartbeatOccurrence;
 
 #[Signature('monitor:test')]
@@ -29,11 +30,13 @@ final class TestCommand extends Command
             return self::FAILURE;
         }
 
-        $payload = $payloadBuilder->build(
+        $guard = new PayloadGuard;
+
+        $payload = $guard->guard($payloadBuilder->build(
             [new HeartbeatOccurrence(new DateTimeImmutable)],
             $this->environment(),
             new DateTimeImmutable,
-        );
+        ));
 
         try {
             $request = Http::timeout($config->timeout())

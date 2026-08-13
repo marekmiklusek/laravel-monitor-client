@@ -276,10 +276,13 @@ so the client keeps itself inside those caps:
   batch carries an extra `log` occurrence at `warning` level with the message
   `monitor: dropped N occurrences over buffer limit`, so the gap is visible in
   the central service. The counter resets with each flush.
-- **Encoding.** Strings that are not valid UTF-8 are repaired before the
-  payload is built. Without that a single malformed byte – a binary blob in a
-  log context, a corrupted input – would make `json_encode` fail and take the
-  whole batch down with it.
+- **One gate.** Every payload passes through a single `PayloadGuard` on its way
+  out, whichever path produced it – a flush, a heartbeat, `monitor:test`. The
+  guard repairs invalid UTF-8, collapses objects and resources to `[OBJECT]`,
+  caps nesting depth and renders `NAN`/`INF` as strings. Sanitisation used to
+  be spread across the collectors, and every gap in that spread was a bug: a
+  malformed byte anywhere made `json_encode` fail and took the whole batch
+  down with it.
 - **Batch isolation.** Each batch is sent inside its own `try/catch`, so a
   transport that fails on one batch does not stop the batches behind it.
 - **Failures beat noise.** When the buffer is full and an exception or a failed

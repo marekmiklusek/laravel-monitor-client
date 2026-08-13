@@ -10,13 +10,19 @@ final readonly class OccurrenceTruncator
 
     public const int DEFAULT_MESSAGE_LENGTH = 8000;
 
+    public function __construct(
+        private PayloadGuard $guard = new PayloadGuard,
+    ) {
+        // ...
+    }
+
     /**
      * @param  array<string, mixed>  $occurrence
      * @return array<string, mixed>
      */
     public function truncate(array $occurrence, int $maxBytes, int $maxMessageLength = self::DEFAULT_MESSAGE_LENGTH): array
     {
-        $capped = $this->capMessages($this->encodable($occurrence), $maxMessageLength);
+        $capped = $this->capMessages($this->guard->guard($occurrence), $maxMessageLength);
 
         $truncated = $capped !== $occurrence;
         $occurrence = $capped;
@@ -133,36 +139,6 @@ final readonly class OccurrenceTruncator
         );
 
         return $occurrence;
-    }
-
-    /**
-     * @param  array<string, mixed>  $occurrence
-     * @return array<string, mixed>
-     */
-    private function encodable(array $occurrence): array
-    {
-        $clean = [];
-
-        foreach ($occurrence as $key => $value) {
-            $clean[Utf8::repair($key)] = $this->encodableValue($value);
-        }
-
-        return $clean;
-    }
-
-    private function encodableValue(mixed $value): mixed
-    {
-        if (is_array($value)) {
-            $clean = [];
-
-            foreach ($value as $key => $nested) {
-                $clean[is_string($key) ? Utf8::repair($key) : $key] = $this->encodableValue($nested);
-            }
-
-            return $clean;
-        }
-
-        return is_string($value) ? Utf8::repair($value) : $value;
     }
 
     private function cap(mixed $message, int $maxLength): mixed

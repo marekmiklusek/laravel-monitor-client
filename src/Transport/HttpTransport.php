@@ -9,12 +9,14 @@ use Illuminate\Support\Facades\Http;
 use MarekMiklusek\MonitorClient\MonitorConfig;
 use MarekMiklusek\MonitorClient\Support\Silencer;
 use MarekMiklusek\MonitorClient\Contracts\Transport;
+use MarekMiklusek\MonitorClient\Support\PayloadGuard;
 
 final readonly class HttpTransport implements Transport
 {
     public function __construct(
         private MonitorConfig $config,
         private Silencer $silencer = new Silencer,
+        private PayloadGuard $guard = new PayloadGuard,
     ) {
         // ...
     }
@@ -40,7 +42,7 @@ final readonly class HttpTransport implements Transport
                 $request = $request->withToken($token);
             }
 
-            $response = $request->post($url, $payload);
+            $response = $request->post($url, $this->guard->guard($payload));
 
             if ($response->failed()) {
                 $this->silencer->log('http-'.$response->status(), 'Laravel Monitor client request was rejected.', [
